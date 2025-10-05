@@ -140,7 +140,10 @@ const PincodeManagement = () => {
       if (response.ok) {
         const userData = await response.json();
         localStorage.setItem('officeUser', JSON.stringify(userData.user));
-        setHasPermission(userData.user.permissions?.pincodeManagement || false);
+        // Check both office user permissions and admin permissions
+        const hasOfficePermission = userData.user.permissions?.pincodeManagement || false;
+        const hasAdminPermission = userData.user.adminInfo?.permissions?.pincodeManagement || false;
+        setHasPermission(hasOfficePermission || hasAdminPermission);
       } else if (response.status === 401) {
         // Token expired
         localStorage.removeItem('officeToken');
@@ -159,7 +162,10 @@ const PincodeManagement = () => {
       if (userData) {
         try {
           const user = JSON.parse(userData);
-          setHasPermission(user.permissions?.pincodeManagement || false);
+          // Check both office user permissions and admin permissions
+          const hasOfficePermission = user.permissions?.pincodeManagement || false;
+          const hasAdminPermission = user.adminInfo?.permissions?.pincodeManagement || false;
+          setHasPermission(hasOfficePermission || hasAdminPermission);
         } catch (error) {
           console.error('Error parsing user data:', error);
           setHasPermission(false);

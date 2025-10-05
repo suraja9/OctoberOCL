@@ -144,6 +144,10 @@ const OfficeDashboard: React.FC = () => {
     // Check admin permissions if user has admin privileges
     const hasAdminPermission = user?.adminInfo?.permissions?.[item.permission as keyof typeof user.adminInfo.permissions];
     
+    // Special case: userManagement permission only exists in admin permissions, not office permissions
+    if (item.permission === 'userManagement') {
+      return hasAdminPermission;
+    }
     
     return hasOfficePermission || hasAdminPermission;
   });

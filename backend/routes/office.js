@@ -183,10 +183,16 @@ router.get('/profile', authenticateOfficeUser, async (req, res) => {
 // Get all office users (for admin)
 router.get('/users', authenticateOfficeUser, async (req, res) => {
   try {
-    // Only allow office managers to view all users
-    if (req.user.role !== 'office_manager') {
+    // Check if user has admin privileges
+    const Admin = (await import('../models/Admin.js')).default;
+    const adminAccount = await Admin.findOne({ email: req.user.email });
+    
+    // Allow access if user is office_manager OR has admin privileges with userManagement permission
+    const hasAdminAccess = adminAccount && adminAccount.isActive && adminAccount.hasPermission('userManagement');
+    
+    if (req.user.role !== 'office_manager' && !hasAdminAccess) {
       return res.status(403).json({
-        error: 'Access denied. Manager role required.'
+        error: 'Access denied. Manager role or admin privileges required.'
       });
     }
     
@@ -196,7 +202,15 @@ router.get('/users', authenticateOfficeUser, async (req, res) => {
     
     res.json({
       success: true,
-      users
+      data: users,
+      pagination: {
+        currentPage: 1,
+        totalPages: 1,
+        totalCount: users.length,
+        hasNext: false,
+        hasPrev: false,
+        limit: users.length
+      }
     });
   } catch (error) {
     console.error('Get users error:', error);
@@ -209,10 +223,16 @@ router.get('/users', authenticateOfficeUser, async (req, res) => {
 // Update user permissions (for admin)
 router.put('/users/:id/permissions', authenticateOfficeUser, async (req, res) => {
   try {
-    // Only allow office managers to update permissions
-    if (req.user.role !== 'office_manager') {
+    // Check if user has admin privileges
+    const Admin = (await import('../models/Admin.js')).default;
+    const adminAccount = await Admin.findOne({ email: req.user.email });
+    
+    // Allow access if user is office_manager OR has admin privileges with userManagement permission
+    const hasAdminAccess = adminAccount && adminAccount.isActive && adminAccount.hasPermission('userManagement');
+    
+    if (req.user.role !== 'office_manager' && !hasAdminAccess) {
       return res.status(403).json({
-        error: 'Access denied. Manager role required.'
+        error: 'Access denied. Manager role or admin privileges required.'
       });
     }
     
@@ -245,13 +265,10 @@ router.put('/users/:id/permissions', authenticateOfficeUser, async (req, res) =>
 });
 
 // Get address forms (with permission check)
-router.get('/addressforms', authenticateAdminOrOfficeAdmin, async (req, res) => {
+router.get('/addressforms', authenticateOfficeUser, async (req, res) => {
   try {
     // Check if user has permission to access address forms
-    // For admin users, check admin permissions; for office users, check office permissions
-    const hasPermission = req.admin 
-      ? req.admin.hasPermission('addressForms')
-      : req.user.permissions.addressForms;
+    const hasPermission = req.user.permissions.addressForms;
     
     if (!hasPermission) {
       return res.status(403).json({
@@ -324,13 +341,10 @@ router.get('/addressforms', authenticateAdminOrOfficeAdmin, async (req, res) => 
 });
 
 // Get pincodes (with permission check)
-router.get('/pincodes', authenticateAdminOrOfficeAdmin, async (req, res) => {
+router.get('/pincodes', authenticateOfficeUser, async (req, res) => {
   try {
     // Check if user has permission to access pincode management
-    // For admin users, check admin permissions; for office users, check office permissions
-    const hasPermission = req.admin 
-      ? req.admin.hasPermission('pincodeManagement')
-      : req.user.permissions.pincodeManagement;
+    const hasPermission = req.user.permissions.pincodeManagement;
     
     if (!hasPermission) {
       return res.status(403).json({
@@ -402,13 +416,10 @@ router.get('/pincodes', authenticateAdminOrOfficeAdmin, async (req, res) => {
 });
 
 // Add new pincode (with permission check)
-router.post('/pincodes', authenticateAdminOrOfficeAdmin, async (req, res) => {
+router.post('/pincodes', authenticateOfficeUser, async (req, res) => {
   try {
     // Check if user has permission to access pincode management
-    // For admin users, check admin permissions; for office users, check office permissions
-    const hasPermission = req.admin 
-      ? req.admin.hasPermission('pincodeManagement')
-      : req.user.permissions.pincodeManagement;
+    const hasPermission = req.user.permissions.pincodeManagement;
     
     if (!hasPermission) {
       return res.status(403).json({
@@ -459,13 +470,10 @@ router.post('/pincodes', authenticateAdminOrOfficeAdmin, async (req, res) => {
 });
 
 // Update pincode (with permission check)
-router.put('/pincodes/:id', authenticateAdminOrOfficeAdmin, async (req, res) => {
+router.put('/pincodes/:id', authenticateOfficeUser, async (req, res) => {
   try {
     // Check if user has permission to access pincode management
-    // For admin users, check admin permissions; for office users, check office permissions
-    const hasPermission = req.admin 
-      ? req.admin.hasPermission('pincodeManagement')
-      : req.user.permissions.pincodeManagement;
+    const hasPermission = req.user.permissions.pincodeManagement;
     
     if (!hasPermission) {
       return res.status(403).json({
@@ -514,13 +522,10 @@ router.put('/pincodes/:id', authenticateAdminOrOfficeAdmin, async (req, res) => 
 });
 
 // Delete pincode (with permission check)
-router.delete('/pincodes/:id', authenticateAdminOrOfficeAdmin, async (req, res) => {
+router.delete('/pincodes/:id', authenticateOfficeUser, async (req, res) => {
   try {
     // Check if user has permission to access pincode management
-    // For admin users, check admin permissions; for office users, check office permissions
-    const hasPermission = req.admin 
-      ? req.admin.hasPermission('pincodeManagement')
-      : req.user.permissions.pincodeManagement;
+    const hasPermission = req.user.permissions.pincodeManagement;
     
     if (!hasPermission) {
       return res.status(403).json({

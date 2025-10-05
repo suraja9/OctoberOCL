@@ -923,7 +923,7 @@ const BookingPanel: React.FC = () => {
     services: 'Standard',
     mode: 'Air',
     insurance: 'Consignor not insured the shipment',
-    riskCoverage: 'Carrier',
+    riskCoverage: 'Owner',
     dimensions: [{ length: '', breadth: '', height: '', unit: 'cm' }],
     actualWeight: '',
     volumetricWeight: 0,
@@ -1018,7 +1018,7 @@ const BookingPanel: React.FC = () => {
         });
         setShipmentData(formData.shipmentData || {
           natureOfConsignment: 'BOX', services: 'Standard', mode: 'Air',
-          insurance: 'Consignor not insured the shipment', riskCoverage: 'Carrier',
+          insurance: 'Consignor not insured the shipment', riskCoverage: 'Owner',
           dimensions: [{ length: '', breadth: '', height: '', unit: 'cm' }],
           actualWeight: '', volumetricWeight: 0, chargeableWeight: 0
         });
@@ -1593,44 +1593,46 @@ const BookingPanel: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white p-6">
-      <div className="max-w-6xl mx-auto">
-        {/* Top Toggle Circles */}
-        <div className="flex justify-center mb-8">
-          <div className="flex bg-gray-100 rounded-full p-1">
-            <button
-              onClick={() => {
-                setFlowType('public');
-                resetPublicFlow();
-              }}
-              className={`
-                px-8 py-3 rounded-full font-medium transition-all duration-300
-                ${flowType === 'public' 
-                  ? 'bg-blue-500 text-white shadow-lg' 
-                  : 'text-gray-600 hover:text-blue-500'
-                }
-              `}
-            >
-              Public
-            </button>
-            <button
-              onClick={() => {
-                setFlowType('corporate');
-                resetPublicFlow();
-                resetCorporateFlow();
-              }}
-              className={`
-                px-8 py-3 rounded-full font-medium transition-all duration-300
-                ${flowType === 'corporate' 
-                  ? 'bg-blue-500 text-white shadow-lg' 
-                  : 'text-gray-600 hover:text-blue-500'
-                }
-              `}
-            >
-              Corporate
-            </button>
+    <div className="min-h-screen bg-white">
+      <div className="max-w-6xl mx-auto p-6">
+        {/* Top Toggle Circles - Hidden when in stepper mode */}
+        {!showStepper && (
+          <div className="flex justify-center mb-8">
+            <div className="flex bg-gray-100 rounded-full p-1">
+              <button
+                onClick={() => {
+                  setFlowType('public');
+                  resetPublicFlow();
+                }}
+                className={`
+                  px-8 py-3 rounded-full font-medium transition-all duration-300
+                  ${flowType === 'public' 
+                    ? 'bg-blue-500 text-white shadow-lg' 
+                    : 'text-gray-600 hover:text-blue-500'
+                  }
+                `}
+              >
+                Public
+              </button>
+              <button
+                onClick={() => {
+                  setFlowType('corporate');
+                  resetPublicFlow();
+                  resetCorporateFlow();
+                }}
+                className={`
+                  px-8 py-3 rounded-full font-medium transition-all duration-300
+                  ${flowType === 'corporate' 
+                    ? 'bg-blue-500 text-white shadow-lg' 
+                    : 'text-gray-600 hover:text-blue-500'
+                  }
+                `}
+              >
+                Corporate
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Public Flow */}
         {flowType === 'public' && !showStepper && (
@@ -1703,6 +1705,7 @@ const BookingPanel: React.FC = () => {
                     <div className="mt-3">
                       <button
                         onClick={async () => { 
+                          setFlowType('public'); // Ensure we're in public flow
                           setShowStepper(true); 
                           setCurrentStep(0);
                           // Ensure origin data and areas are populated when moving to step 1
@@ -2024,14 +2027,32 @@ const BookingPanel: React.FC = () => {
             animate={{ opacity: 1, y: 0 }}
             className="mt-8"
           >
-            <Stepper 
-              currentStep={currentStep} 
-              steps={steps} 
-              completedSteps={completedSteps} 
-            />
+            {/* Fixed Header Section */}
+            <div className="sticky top-0 bg-white z-10 pb-4">
+              <Stepper 
+                currentStep={currentStep} 
+                steps={steps} 
+                completedSteps={completedSteps} 
+              />
+              
+              {/* City Display */}
+              {originData.city && destinationData.city && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="text-center py-4"
+                >
+                  <div className="inline-flex items-center bg-white rounded-lg shadow-md px-6 py-3 border border-gray-200">
+                    <span className="text-lg font-bold text-gray-800">
+                      {originData.city} → {destinationData.city}
+                    </span>
+                  </div>
+                </motion.div>
+              )}
+            </div>
             
-            {/* Step Content - All Forms */}
-            <div className="bg-white rounded-xl shadow-lg p-8 mt-6">
+            {/* Scrollable Step Content - All Forms */}
+            <div className="bg-white rounded-xl shadow-lg p-8 mt-6 max-h-[calc(100vh-300px)] overflow-y-auto">
               {/* Back Button for all steps */}
               <div className="mb-6">
                 <button
@@ -2621,19 +2642,6 @@ const BookingPanel: React.FC = () => {
                             <input
                               type="radio"
                               name="riskCoverage"
-                              value="Carrier"
-                              checked={shipmentData.riskCoverage === "Carrier"}
-                              onChange={(e) => setShipmentData(prev => ({ ...prev, riskCoverage: e.target.value }))}
-                              className="w-4 h-4 text-green-600 focus:ring-green-500 border-gray-300"
-                            />
-                            <span className="text-gray-700 group-hover:text-green-600 transition-colors font-medium">
-                              Carrier
-                            </span>
-                          </label>
-                          <label className="flex items-center space-x-3 cursor-pointer group bg-white rounded-lg p-3 hover:bg-green-50 transition-colors">
-                            <input
-                              type="radio"
-                              name="riskCoverage"
                               value="Owner"
                               checked={shipmentData.riskCoverage === "Owner"}
                               onChange={(e) => setShipmentData(prev => ({ ...prev, riskCoverage: e.target.value }))}
@@ -2641,6 +2649,19 @@ const BookingPanel: React.FC = () => {
                             />
                             <span className="text-gray-700 group-hover:text-green-600 transition-colors font-medium">
                               Owner
+                            </span>
+                          </label>
+                          <label className="flex items-center space-x-3 cursor-pointer group bg-white rounded-lg p-3 hover:bg-green-50 transition-colors">
+                            <input
+                              type="radio"
+                              name="riskCoverage"
+                              value="Carrier"
+                              checked={shipmentData.riskCoverage === "Carrier"}
+                              onChange={(e) => setShipmentData(prev => ({ ...prev, riskCoverage: e.target.value }))}
+                              className="w-4 h-4 text-green-600 focus:ring-green-500 border-gray-300"
+                            />
+                            <span className="text-gray-700 group-hover:text-green-600 transition-colors font-medium">
+                              Carrier
                             </span>
                           </label>
                         </div>

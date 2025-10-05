@@ -21,16 +21,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { 
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { 
   Select,
   SelectContent,
   SelectItem,
@@ -40,14 +30,7 @@ import {
 import { 
   Search, 
   Edit, 
-  Trash2, 
-  RefreshCw,
-  Filter,
-  Shield,
-  ShieldCheck,
-  ShieldX,
-  UserCheck,
-  UserX
+  RefreshCw
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -91,9 +74,6 @@ const UserManagement = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedUser, setSelectedUser] = useState<OfficeUser | null>(null);
   const [isPermissionsModalOpen, setIsPermissionsModalOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [userToDelete, setUserToDelete] = useState<OfficeUser | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [permissions, setPermissions] = useState({
     dashboard: true,
@@ -122,7 +102,22 @@ const UserManagement = () => {
         ...(statusFilter !== 'all' && { status: statusFilter })
       });
 
-      const response = await fetch(`/api/admin/users?${params}`, {
+      // Check if user has admin privileges and use admin API endpoint
+      const userData = localStorage.getItem('officeUser');
+      let apiEndpoint = '/api/office/users';
+      
+      if (userData) {
+        try {
+          const user = JSON.parse(userData);
+          if (user.adminInfo && user.adminInfo.permissions.userManagement) {
+            apiEndpoint = '/api/admin/users';
+          }
+        } catch (error) {
+          console.error('Error parsing user data:', error);
+        }
+      }
+
+      const response = await fetch(`${apiEndpoint}?${params}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -164,7 +159,22 @@ const UserManagement = () => {
       setIsUpdating(true);
       const token = localStorage.getItem('officeToken');
       
-      const response = await fetch(`/api/admin/users/${selectedUser._id}/permissions`, {
+      // Check if user has admin privileges and use admin API endpoint
+      const userData = localStorage.getItem('officeUser');
+      let apiEndpoint = '/api/office/users';
+      
+      if (userData) {
+        try {
+          const user = JSON.parse(userData);
+          if (user.adminInfo && user.adminInfo.permissions.userManagement) {
+            apiEndpoint = '/api/admin/users';
+          }
+        } catch (error) {
+          console.error('Error parsing user data:', error);
+        }
+      }
+      
+      const response = await fetch(`${apiEndpoint}/${selectedUser._id}/permissions`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -209,98 +219,7 @@ const UserManagement = () => {
     }
   };
 
-  const handleToggleStatus = async (user: OfficeUser) => {
-    try {
-      const token = localStorage.getItem('officeToken');
-      
-      const response = await fetch(`/api/admin/users/${user._id}/status`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ isActive: !user.isActive }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        toast({
-          title: "Status Updated",
-          description: `${user.name} has been ${user.isActive ? 'deactivated' : 'activated'}.`,
-        });
-        
-        // Update the user in the list
-        setUsers(users.map(u => 
-          u._id === user._id 
-            ? { ...u, isActive: !u.isActive }
-            : u
-        ));
-      } else {
-        const errorData = await response.json();
-        toast({
-          title: "Update Failed",
-          description: errorData.error || 'Failed to update user status',
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error('Error updating user status:', error);
-      toast({
-        title: "Update Failed",
-        description: 'Network error while updating user status',
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleDeleteUser = (user: OfficeUser) => {
-    setUserToDelete(user);
-    setIsDeleteDialogOpen(true);
-  };
-
-  const confirmDelete = async () => {
-    if (!userToDelete) return;
-
-    try {
-      setIsDeleting(true);
-      const token = localStorage.getItem('officeToken');
-      
-      const response = await fetch(`/api/admin/users/${userToDelete._id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        toast({
-          title: "User Deleted",
-          description: `${userToDelete.name} has been deleted successfully.`,
-        });
-        
-        // Remove the user from the list
-        setUsers(users.filter(user => user._id !== userToDelete._id));
-        setIsDeleteDialogOpen(false);
-        setUserToDelete(null);
-      } else {
-        const errorData = await response.json();
-        toast({
-          title: "Delete Failed",
-          description: errorData.error || 'Failed to delete user',
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error('Error deleting user:', error);
-      toast({
-        title: "Delete Failed",
-        description: 'Network error while deleting user',
-        variant: "destructive",
-      });
-    } finally {
-      setIsDeleting(false);
-    }
-  };
+  // Office users can only manage permissions, not delete users or change status
 
   const getPermissionBadges = (permissions: OfficeUser['permissions']) => {
     const badges = [];
@@ -447,25 +366,6 @@ const UserManagement = () => {
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleToggleStatus(user)}
-                          >
-                            {user.isActive ? (
-                              <UserX className="h-4 w-4" />
-                            ) : (
-                              <UserCheck className="h-4 w-4" />
-                            )}
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleDeleteUser(user)}
-                            className="text-red-600 hover:text-red-700"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -557,28 +457,6 @@ const UserManagement = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirm Deletion</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete the user "{userToDelete?.name}"?
-              This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmDelete}
-              disabled={isDeleting}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              {isDeleting ? 'Deleting...' : 'Delete'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 };

@@ -351,11 +351,17 @@ const AdminManagement = () => {
     }
   };
 
-  const getPermissionBadges = (permissions: Admin['permissions']) => {
+  const getPermissionBadges = (admin: Admin) => {
     const badges = [];
-    if (permissions.userManagement) badges.push('User Management');
-    if (permissions.pincodeManagement) badges.push('Pincode Management');
-    if (permissions.addressForms) badges.push('Address Forms');
+    
+    // Super admin has all permissions
+    if (admin.role === 'super_admin') {
+      badges.push('User Management', 'Pincode Management', 'Address Forms', 'All Permissions');
+    } else {
+      if (admin.permissions.userManagement) badges.push('User Management');
+      if (admin.permissions.pincodeManagement) badges.push('Pincode Management');
+      if (admin.permissions.addressForms) badges.push('Address Forms');
+    }
     // Dashboard, Reports, and Settings are default permissions - not shown in badges
     return badges;
   };
@@ -472,19 +478,19 @@ const AdminManagement = () => {
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
-                          {getPermissionBadges(admin.permissions).map((permission) => (
+                          {getPermissionBadges(admin).map((permission) => (
                             <Badge key={permission} variant="outline" className="text-xs">
                               {permission}
                             </Badge>
                           ))}
-                          {getPermissionBadges(admin.permissions).length === 0 && (
+                          {getPermissionBadges(admin).length === 0 && (
                             <span className="text-xs text-gray-400">Basic access only</span>
                           )}
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={admin.canAssignPermissions ? 'default' : 'secondary'}>
-                          {admin.canAssignPermissions ? 'Yes' : 'No'}
+                        <Badge variant={admin.role === 'super_admin' || admin.canAssignPermissions ? 'default' : 'secondary'}>
+                          {admin.role === 'super_admin' || admin.canAssignPermissions ? 'Yes' : 'No'}
                         </Badge>
                       </TableCell>
                       <TableCell>
