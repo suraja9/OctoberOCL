@@ -21,6 +21,7 @@ import {
   Package,
   Plane,
   Truck,
+  Train,
   Shield,
   FileText,
   Camera,
@@ -2548,7 +2549,8 @@ const BookingPanel: React.FC = () => {
                         <div className="space-y-3">
                           {[
                             { value: 'Air', icon: Plane },
-                            { value: 'Surface', icon: Truck }
+                            { value: 'Surface', icon: Truck },
+                            { value: 'Train', icon: Train }
                           ].map(({ value, icon: Icon }) => (
                             <label key={value} className="flex items-center space-x-3 cursor-pointer group bg-white rounded-lg p-3 hover:bg-purple-50 transition-colors">
                               <input
