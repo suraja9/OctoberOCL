@@ -1058,6 +1058,11 @@ const BookingPanel: React.FC = () => {
     saveToLocalStorage();
   }, [flowType, originData, destinationData, shipmentData, uploadData, paymentData, currentStep, completedSteps, originPincode, destinationPincode, originServiceable, destinationServiceable, corporateId, corporateMobile, corporateData, corporateSearchType, showStepper]);
 
+  // Helper function to parse invoice value (remove commas)
+  const parseInvoiceValue = (value: string) => {
+    return parseFloat(value.replace(/,/g, '')) || 0;
+  };
+
   // GST validation function
   const validateGSTFormat = (value: string) => {
     // Remove any non-alphanumeric characters
@@ -1215,9 +1220,10 @@ const BookingPanel: React.FC = () => {
           .map(dim => `${dim.length} × ${dim.breadth} × ${dim.height} = ${(parseFloat(dim.length) * parseFloat(dim.breadth) * parseFloat(dim.height)).toFixed(2)} ${dim.unit}³`)
           .join(', ');
           
+        // Create stepData without dimensions for confirmation popup
+        const { dimensions, ...shipmentDataWithoutDimensions } = shipmentData;
         stepData = {
-          ...shipmentData,
-          dimensions: formattedDimensions || 'No dimensions entered',
+          ...shipmentDataWithoutDimensions,
           volumetricWeight: calculateVolumetricWeight(),
           chargeableWeight: calculateChargeableWeight()
         };
@@ -2789,7 +2795,7 @@ const BookingPanel: React.FC = () => {
                       {steps[currentStep]}
                     </h3>
                     <p className="text-gray-600">
-                      Upload package images and invoice details{parseFloat(uploadData.invoiceValue) >= 50000 ? ' (E-Waybill required for â‰¥â‚¹50,000)' : ''}
+                      Upload package images and invoice details{parseInvoiceValue(uploadData.invoiceValue) >= 50000 ? ' (E-Waybill required for â‰¥â‚¹50,000)' : ''}
                     </p>
                   </div>
 
@@ -2815,7 +2821,7 @@ const BookingPanel: React.FC = () => {
                           label="Package Images"
                           files={uploadData.packageImages}
                           onFilesChange={(files) => setUploadData(prev => ({ ...prev, packageImages: files }))}
-                          maxFiles={10}
+                          maxFiles={5}
                           accept="image/*"
                           uploadEndpoint={`${API_BASE}/api/upload/package-images`}
                           fieldName="packageImages"
@@ -2851,20 +2857,23 @@ const BookingPanel: React.FC = () => {
                       />
                       
                       <FloatingInput
-                        label="Invoice Value (â‚¹)"
+                        label="Invoice Value (Rs)"
                         value={uploadData.invoiceValue}
                         onChange={(value) => {
+                          // Remove all non-numeric characters except decimal point
                           const numericValue = value.replace(/[^\d.]/g, '');
-                          setUploadData(prev => ({ ...prev, invoiceValue: numericValue }));
+                          // Format with Indian number system (commas)
+                          const formattedValue = numericValue.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+                          setUploadData(prev => ({ ...prev, invoiceValue: formattedValue }));
                         }}
-                        type="number"
+                        type="text"
                         required
                         icon={<DollarSign className="w-4 h-4" />}
                       />
                     </div>
 
                     {/* Conditional E-Waybill */}
-                    {parseFloat(uploadData.invoiceValue) >= 50000 && (
+                    {parseInvoiceValue(uploadData.invoiceValue) >= 50000 && (
                       <motion.div
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
@@ -2875,9 +2884,15 @@ const BookingPanel: React.FC = () => {
                           <span className="text-sm font-medium text-yellow-800">E-Waybill Required</span>
                         </div>
                         <FloatingInput
-                          label="E-Waybill Number"
+                          label="E-Waybill Number (1234 5678 9012)"
                           value={uploadData.eWaybillNumber}
-                          onChange={(value) => setUploadData(prev => ({ ...prev, eWaybillNumber: value }))}
+                          onChange={(value) => {
+                            // Remove all non-numeric characters and limit to 12 digits
+                            const numericValue = value.replace(/\D/g, '').slice(0, 12);
+                            // Add spaces after every 4 digits
+                            const formattedValue = numericValue.replace(/(\d{4})(?=\d)/g, '$1 ');
+                            setUploadData(prev => ({ ...prev, eWaybillNumber: formattedValue }));
+                          }}
                           required
                           icon={<FileText className="w-4 h-4" />}
                         />
@@ -2890,7 +2905,7 @@ const BookingPanel: React.FC = () => {
                         label="Upload Invoice Images"
                         files={uploadData.invoiceImages}
                         onFilesChange={(files) => setUploadData(prev => ({ ...prev, invoiceImages: files }))}
-                        maxFiles={10}
+                        maxFiles={5}
                         accept="image/*"
                         uploadEndpoint={`${API_BASE}/api/upload/invoice-images`}
                         fieldName="invoiceImages"
@@ -3033,11 +3048,11 @@ const BookingPanel: React.FC = () => {
                 <button
                   onClick={() => handleStepSave(currentStep)}
                   disabled={
-                    (currentStep === 3 && (!uploadData.acceptTerms || !uploadData.totalPackages || !uploadData.invoiceNumber || !uploadData.invoiceValue || !uploadData.contentDescription || (parseFloat(uploadData.invoiceValue) >= 50000 && !uploadData.eWaybillNumber))) ||
+                    (currentStep === 3 && (!uploadData.acceptTerms || !uploadData.totalPackages || !uploadData.invoiceNumber || !uploadData.invoiceValue || !uploadData.contentDescription || (parseInvoiceValue(uploadData.invoiceValue) >= 50000 && !uploadData.eWaybillNumber))) ||
                     (currentStep === 4 && !paymentData.mode)
                   }
                   className={`px-8 py-3 rounded-lg transition-colors font-medium flex items-center mx-auto ${
-                    ((currentStep === 3 && (!uploadData.acceptTerms || !uploadData.totalPackages || !uploadData.invoiceNumber || !uploadData.invoiceValue || !uploadData.contentDescription || (parseFloat(uploadData.invoiceValue) >= 50000 && !uploadData.eWaybillNumber))) ||
+                    ((currentStep === 3 && (!uploadData.acceptTerms || !uploadData.totalPackages || !uploadData.invoiceNumber || !uploadData.invoiceValue || !uploadData.contentDescription || (parseInvoiceValue(uploadData.invoiceValue) >= 50000 && !uploadData.eWaybillNumber))) ||
                      (currentStep === 4 && !paymentData.mode))
                       ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                       : currentStep === 0 ? 'bg-blue-500 hover:bg-blue-600 text-white' :
