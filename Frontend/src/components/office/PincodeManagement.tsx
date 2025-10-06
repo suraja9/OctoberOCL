@@ -246,7 +246,8 @@ const PincodeManagement = () => {
       areaname: '',
       cityname: '',
       distrcitname: '',
-      statename: ''
+      statename: '',
+      serviceable: false
     });
     setIsAddModalOpen(true);
   };
@@ -594,74 +595,115 @@ const PincodeManagement = () => {
             </DialogDescription>
           </DialogHeader>
           
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="pincode">Pincode</Label>
-              <Input
-                id="pincode"
-                type="number"
-                value={formData.pincode}
-                onChange={(e) => setFormData(prev => ({ ...prev, pincode: e.target.value }))}
-                placeholder="Enter pincode"
-              />
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            handleSavePincode();
+          }}>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="pincode">Pincode</Label>
+                <Input
+                  id="pincode"
+                  type="text"
+                  value={formData.pincode}
+                  onChange={(e) => setFormData(prev => ({ ...prev, pincode: e.target.value }))}
+                  placeholder="Enter pincode"
+                  maxLength={6}
+                  required
+                  onKeyDown={(e) => {
+                    // Allow only numbers, backspace, delete, tab, escape, enter
+                    if (!/[0-9]/.test(e.key) && !['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                      e.preventDefault();
+                    }
+                  }}
+                />
+              </div>
+              <div>
+                <Label htmlFor="areaname">Area Name</Label>
+                <Input
+                  id="areaname"
+                  type="text"
+                  value={formData.areaname}
+                  onChange={(e) => setFormData(prev => ({ ...prev, areaname: e.target.value }))}
+                  placeholder="Enter area name"
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="cityname">City</Label>
+                <Input
+                  id="cityname"
+                  type="text"
+                  value={formData.cityname}
+                  onChange={(e) => setFormData(prev => ({ ...prev, cityname: e.target.value }))}
+                  placeholder="Enter city name"
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="distrcitname">District</Label>
+                <Input
+                  id="distrcitname"
+                  type="text"
+                  value={formData.distrcitname}
+                  onChange={(e) => setFormData(prev => ({ ...prev, distrcitname: e.target.value }))}
+                  placeholder="Enter district name"
+                />
+              </div>
+              <div>
+                <Label htmlFor="statename">State</Label>
+                <Input
+                  id="statename"
+                  type="text"
+                  value={formData.statename}
+                  onChange={(e) => setFormData(prev => ({ ...prev, statename: e.target.value }))}
+                  placeholder="Enter state name"
+                  required
+                />
+              </div>
+              
+              <div className="flex items-center space-x-2 pt-2">
+                <input
+                  id="serviceable"
+                  type="checkbox"
+                  checked={!!formData.serviceable}
+                  onChange={(e) => setFormData(prev => ({ ...prev, serviceable: e.target.checked }))}
+                />
+                <Label htmlFor="serviceable">Serviceable</Label>
+              </div>
             </div>
-            <div>
-              <Label htmlFor="areaname">Area Name</Label>
-              <Input
-                id="areaname"
-                value={formData.areaname}
-                onChange={(e) => setFormData(prev => ({ ...prev, areaname: e.target.value }))}
-                placeholder="Enter area name"
-              />
-            </div>
-            <div>
-              <Label htmlFor="cityname">City</Label>
-              <Input
-                id="cityname"
-                value={formData.cityname}
-                onChange={(e) => setFormData(prev => ({ ...prev, cityname: e.target.value }))}
-                placeholder="Enter city name"
-              />
-            </div>
-            <div>
-              <Label htmlFor="distrcitname">District</Label>
-              <Input
-                id="distrcitname"
-                value={formData.distrcitname}
-                onChange={(e) => setFormData(prev => ({ ...prev, distrcitname: e.target.value }))}
-                placeholder="Enter district name"
-              />
-            </div>
-            <div>
-              <Label htmlFor="statename">State</Label>
-              <Input
-                id="statename"
-                value={formData.statename}
-                onChange={(e) => setFormData(prev => ({ ...prev, statename: e.target.value }))}
-                placeholder="Enter state name"
-              />
-            </div>
-          </div>
 
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setIsAddModalOpen(false);
-                setIsEditModalOpen(false);
-                setSelectedPincode(null);
-              }}
-              disabled={isSaving}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSavePincode}
-              disabled={isSaving || !formData.pincode || !formData.areaname || !formData.cityname || !formData.statename}
-            >
-              {isSaving ? 'Saving...' : (isEditModalOpen ? 'Update' : 'Add')}
-            </Button>
-          </DialogFooter>
+            <DialogFooter className="mt-6">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setIsAddModalOpen(false);
+                  setIsEditModalOpen(false);
+                  setSelectedPincode(null);
+                }}
+                disabled={isSaving}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={isSaving || !formData.pincode || !formData.areaname || !formData.cityname || !formData.statename}
+              >
+                {isSaving ? (
+                  <>
+                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                    {isEditModalOpen ? 'Updating...' : 'Adding...'}
+                  </>
+                ) : (
+                  <>
+                    <Save className="mr-2 h-4 w-4" />
+                    {isEditModalOpen ? 'Update' : 'Add'}
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 
