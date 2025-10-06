@@ -468,15 +468,48 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
                 {Object.entries(data).map(([key, value]) => {
                   if (value === null || value === undefined || value === '') return null;
                   
+                  // Special handling for image fields
+                  const isImageField = key === 'packageImages' || key === 'invoiceImages';
+                  
                   return (
                     <div key={key} className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
                       <div className="flex flex-col">
                         <span className={`text-${stepColor}-600 text-xs font-medium uppercase tracking-wide mb-1`}>
                           {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
                         </span>
-                        <span className="text-gray-800 font-semibold text-sm break-words">
-                          {Array.isArray(value) ? value.join(', ') : String(value)}
-                        </span>
+                        {isImageField ? (
+                          Array.isArray(value) && value.length > 0 ? (
+                            <div className="space-y-2">
+                              {value.map((file, index) => {
+                                const fileName = file.file?.name || file.originalName || 'Unknown';
+                                const imageUrl = file.preview || file.url || (file.file ? URL.createObjectURL(file.file) : null);
+                                
+                                return (
+                                  <div key={index} className="flex items-center space-x-2">
+                                    <button
+                                      onClick={() => {
+                                        if (imageUrl) {
+                                          window.open(imageUrl, '_blank');
+                                        }
+                                      }}
+                                      className="text-blue-600 hover:text-blue-800 underline text-sm font-medium cursor-pointer transition-colors duration-200"
+                                      title="Click to view image"
+                                    >
+                                      {fileName}
+                                    </button>
+                                    <span className="text-gray-400 text-xs">({file.file?.size ? `${(file.file.size / 1024).toFixed(1)} KB` : 'Unknown size'})</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <span className="text-gray-500 text-sm italic">No images uploaded</span>
+                          )
+                        ) : (
+                          <span className="text-gray-800 font-semibold text-sm break-words">
+                            {Array.isArray(value) ? value.join(', ') : String(value)}
+                          </span>
+                        )}
                       </div>
                     </div>
                   );
@@ -641,8 +674,66 @@ const FinalConfirmationModal: React.FC<FinalConfirmationModalProps> = ({
                   <div><span className="font-medium">Content:</span> {allData.uploadData?.contentDescription}</div>
                   <div><span className="font-medium">Invoice No:</span> {allData.uploadData?.invoiceNumber}</div>
                   <div><span className="font-medium">Invoice Value:</span> ₹{allData.uploadData?.invoiceValue}</div>
-                  <div><span className="font-medium">Package Images:</span> {allData.uploadData?.packageImages}</div>
-                  <div><span className="font-medium">Invoice Images:</span> {allData.uploadData?.invoiceImages}</div>
+                  <div>
+                    <span className="font-medium">Package Images:</span>
+                    {Array.isArray(allData.uploadData?.packageImages) && allData.uploadData.packageImages.length > 0 ? (
+                      <div className="mt-1 space-y-1">
+                        {allData.uploadData.packageImages.map((file, index) => {
+                          const fileName = file.file?.name || file.originalName || 'Unknown';
+                          const imageUrl = file.preview || file.url || (file.file ? URL.createObjectURL(file.file) : null);
+                          
+                          return (
+                            <div key={index} className="flex items-center space-x-2">
+                              <button
+                                onClick={() => {
+                                  if (imageUrl) {
+                                    window.open(imageUrl, '_blank');
+                                  }
+                                }}
+                                className="text-blue-600 hover:text-blue-800 underline text-sm font-medium cursor-pointer transition-colors duration-200"
+                                title="Click to view image"
+                              >
+                                {fileName}
+                              </button>
+                              <span className="text-gray-400 text-xs">({file.file?.size ? `${(file.file.size / 1024).toFixed(1)} KB` : 'Unknown size'})</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <span className="text-gray-500 italic ml-2">No package images uploaded</span>
+                    )}
+                  </div>
+                  <div>
+                    <span className="font-medium">Invoice Images:</span>
+                    {Array.isArray(allData.uploadData?.invoiceImages) && allData.uploadData.invoiceImages.length > 0 ? (
+                      <div className="mt-1 space-y-1">
+                        {allData.uploadData.invoiceImages.map((file, index) => {
+                          const fileName = file.file?.name || file.originalName || 'Unknown';
+                          const imageUrl = file.preview || file.url || (file.file ? URL.createObjectURL(file.file) : null);
+                          
+                          return (
+                            <div key={index} className="flex items-center space-x-2">
+                              <button
+                                onClick={() => {
+                                  if (imageUrl) {
+                                    window.open(imageUrl, '_blank');
+                                  }
+                                }}
+                                className="text-blue-600 hover:text-blue-800 underline text-sm font-medium cursor-pointer transition-colors duration-200"
+                                title="Click to view image"
+                              >
+                                {fileName}
+                              </button>
+                              <span className="text-gray-400 text-xs">({file.file?.size ? `${(file.file.size / 1024).toFixed(1)} KB` : 'Unknown size'})</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <span className="text-gray-500 italic ml-2">No invoice images uploaded</span>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -1233,11 +1324,11 @@ const BookingPanel: React.FC = () => {
         stepData = {
           ...uploadData,
           packageImages: uploadData.packageImages.length > 0 
-            ? uploadData.packageImages.map(file => file.file?.name || file.originalName || 'Unknown').join(', ')
-            : 'No package images uploaded',
+            ? uploadData.packageImages
+            : [],
           invoiceImages: uploadData.invoiceImages.length > 0
-            ? uploadData.invoiceImages.map(file => file.file?.name || file.originalName || 'Unknown').join(', ')
-            : 'No invoice images uploaded'
+            ? uploadData.invoiceImages
+            : []
         };
         stepTitle = 'Confirm Upload Details';
         break;
@@ -1268,11 +1359,11 @@ const BookingPanel: React.FC = () => {
         uploadData: {
           ...uploadData,
           packageImages: uploadData.packageImages.length > 0 
-            ? uploadData.packageImages.map(file => file.file?.name || file.originalName || 'Unknown').join(', ')
-            : 'No package images uploaded',
+            ? uploadData.packageImages
+            : [],
           invoiceImages: uploadData.invoiceImages.length > 0
-            ? uploadData.invoiceImages.map(file => file.file?.name || file.originalName || 'Unknown').join(', ')
-            : 'No invoice images uploaded'
+            ? uploadData.invoiceImages
+            : []
         },
         paymentData
       };
