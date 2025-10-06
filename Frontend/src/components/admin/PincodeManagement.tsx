@@ -139,23 +139,28 @@ const PincodeManagement = () => {
   }, [searchTerm, stateFilter, cityFilter]);
 
   const fetchPincodes = async (page = 1) => {
-    setIsLoading(true);
-    setError('');
-    
     try {
-      // Try admin token first, then office token (for admin users in office dashboard)
+      setIsLoading(true);
+      setError('');
+      
       const adminToken = localStorage.getItem('adminToken');
       const officeToken = localStorage.getItem('officeToken');
       const token = adminToken || officeToken;
       
+      if (!token) {
+        setError('No authentication token found. Please login again.');
+        const redirectPath = adminToken ? '/admin' : '/office';
+        window.location.href = redirectPath;
+        return;
+      }
+      
       const params = new URLSearchParams({
         page: page.toString(),
         limit: '10',
+        ...(searchTerm && { search: searchTerm }),
+        ...(stateFilter && { state: stateFilter }),
+        ...(cityFilter && { city: cityFilter })
       });
-      
-      if (searchTerm) params.append('search', searchTerm);
-      if (stateFilter) params.append('state', stateFilter);
-      if (cityFilter) params.append('city', cityFilter);
       
       // Use admin endpoint if admin token exists, otherwise use office endpoint
       const endpoint = adminToken ? '/api/admin/pincodes' : '/api/office/pincodes';
@@ -168,16 +173,26 @@ const PincodeManagement = () => {
 
       if (response.ok) {
         const data = await response.json();
-        setPincodes(data.data);
+        setPincodes(data.data || []);
         setPagination(data.pagination);
+        setError('');
       } else if (response.status === 401) {
-        setError('Session expired. Please login again.');
-        // Redirect to appropriate login page
-        const adminToken = localStorage.getItem('adminToken');
-        window.location.href = adminToken ? '/admin' : '/office';
+        // Token expired or invalid
+        if (adminToken) {
+          localStorage.removeItem('adminToken');
+          localStorage.removeItem('adminUser');
+          window.location.href = '/admin';
+        } else {
+          localStorage.removeItem('officeToken');
+          localStorage.removeItem('officeUser');
+          window.location.href = '/office';
+        }
+        return;
+      } else if (response.status === 403) {
+        setError('You do not have permission to view pincode management. Please contact your administrator.');
       } else {
-        const data = await response.json();
-        setError(data.error || 'Failed to load pincodes');
+        const errorData = await response.json();
+        setError(errorData.error || 'Failed to load pincodes');
       }
     } catch (error) {
       console.error('Error fetching pincodes:', error);
@@ -193,7 +208,8 @@ const PincodeManagement = () => {
       areaname: '',
       cityname: '',
       distrcitname: '',
-      statename: ''
+      statename: '',
+      serviceable: false
     });
     setIsAddModalOpen(true);
   };
@@ -217,13 +233,25 @@ const PincodeManagement = () => {
   };
 
   const handleSubmit = async (isEdit: boolean) => {
-    setIsSaving(true);
-    setError('');
-
     try {
+      setIsSaving(true);
+      setError('');
+      
       const adminToken = localStorage.getItem('adminToken');
       const officeToken = localStorage.getItem('officeToken');
       const token = adminToken || officeToken;
+      
+      if (!token) {
+        toast({
+          title: "Error",
+          description: 'No authentication token found. Please login again.',
+          variant: "destructive",
+        });
+        const redirectPath = adminToken ? '/admin' : '/office';
+        window.location.href = redirectPath;
+        return;
+      }
+      
       const baseEndpoint = adminToken ? '/api/admin/pincodes' : '/api/office/pincodes';
       
       const url = isEdit 
@@ -239,23 +267,50 @@ const PincodeManagement = () => {
         body: JSON.stringify(formData),
       });
 
-      const data = await response.json();
-
       if (response.ok) {
+        const data = await response.json();
         toast({
-          title: isEdit ? "Pincode Updated" : "Pincode Added",
-          description: `Pincode ${formData.pincode} has been successfully ${isEdit ? 'updated' : 'added'}.`,
+          title: "Success",
+          description: `Pincode ${isEdit ? 'updated' : 'added'} successfully.`,
         });
-        fetchPincodes(pagination?.currentPage || 1);
+        
         setIsAddModalOpen(false);
         setIsEditModalOpen(false);
         setSelectedPincode(null);
+        fetchPincodes(pagination?.currentPage || 1);
+      } else if (response.status === 401) {
+        const adminToken = localStorage.getItem('adminToken');
+        if (adminToken) {
+          localStorage.removeItem('adminToken');
+          localStorage.removeItem('adminUser');
+          window.location.href = '/admin';
+        } else {
+          localStorage.removeItem('officeToken');
+          localStorage.removeItem('officeUser');
+          window.location.href = '/office';
+        }
+        return;
+      } else if (response.status === 403) {
+        toast({
+          title: "Error",
+          description: 'You do not have permission to manage pincodes. Please contact your administrator.',
+          variant: "destructive",
+        });
       } else {
-        setError(data.error || `Failed to ${isEdit ? 'update' : 'add'} pincode`);
+        const errorData = await response.json();
+        toast({
+          title: "Error",
+          description: errorData.error || `Failed to ${isEdit ? 'update' : 'add'} pincode`,
+          variant: "destructive",
+        });
       }
     } catch (error) {
-      console.error('Save error:', error);
-      setError(`Network error while ${isEdit ? 'updating' : 'adding'} pincode`);
+      console.error('Error saving pincode:', error);
+      toast({
+        title: "Error",
+        description: 'Network error while saving pincode',
+        variant: "destructive",
+      });
     } finally {
       setIsSaving(false);
     }
@@ -263,12 +318,24 @@ const PincodeManagement = () => {
 
   const confirmDelete = async () => {
     if (!pincodeToDelete) return;
-    
-    setIsDeleting(true);
+
     try {
+      setIsDeleting(true);
       const adminToken = localStorage.getItem('adminToken');
       const officeToken = localStorage.getItem('officeToken');
       const token = adminToken || officeToken;
+      
+      if (!token) {
+        toast({
+          title: "Error",
+          description: 'No authentication token found. Please login again.',
+          variant: "destructive",
+        });
+        const redirectPath = adminToken ? '/admin' : '/office';
+        window.location.href = redirectPath;
+        return;
+      }
+      
       const endpoint = adminToken ? '/api/admin/pincodes' : '/api/office/pincodes';
       
       const response = await fetch(`${endpoint}/${pincodeToDelete._id}`, {
@@ -280,23 +347,43 @@ const PincodeManagement = () => {
 
       if (response.ok) {
         toast({
-          title: "Pincode Deleted",
-          description: "Pincode has been successfully deleted.",
+          title: "Success",
+          description: "Pincode deleted successfully.",
         });
+        
+        setIsDeleteDialogOpen(false);
+        setPincodeToDelete(null);
         fetchPincodes(pagination?.currentPage || 1);
-      } else {
-        const data = await response.json();
+      } else if (response.status === 401) {
+        if (adminToken) {
+          localStorage.removeItem('adminToken');
+          localStorage.removeItem('adminUser');
+          window.location.href = '/admin';
+        } else {
+          localStorage.removeItem('officeToken');
+          localStorage.removeItem('officeUser');
+          window.location.href = '/office';
+        }
+        return;
+      } else if (response.status === 403) {
         toast({
-          title: "Delete Failed",
-          description: data.error || "Failed to delete the pincode.",
+          title: "Error",
+          description: 'You do not have permission to manage pincodes. Please contact your administrator.',
+          variant: "destructive",
+        });
+      } else {
+        const errorData = await response.json();
+        toast({
+          title: "Error",
+          description: errorData.error || 'Failed to delete pincode',
           variant: "destructive",
         });
       }
     } catch (error) {
-      console.error('Delete error:', error);
+      console.error('Error deleting pincode:', error);
       toast({
-        title: "Delete Failed",
-        description: "Network error while deleting the pincode.",
+        title: "Error",
+        description: 'Network error while deleting pincode',
         variant: "destructive",
       });
     } finally {
@@ -374,108 +461,6 @@ const PincodeManagement = () => {
     document.body.removeChild(link);
   };
 
-  const PincodeModal = ({ isOpen, onClose, isEdit }: { isOpen: boolean; onClose: () => void; isEdit: boolean }) => (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{isEdit ? 'Edit Pincode' : 'Add New Pincode'}</DialogTitle>
-          <DialogDescription>
-            {isEdit ? 'Update the pincode information.' : 'Add a new pincode area to the database.'}
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="pincode">Pincode *</Label>
-              <Input
-                id="pincode"
-                value={formData.pincode}
-                onChange={(e) => setFormData(prev => ({ ...prev, pincode: e.target.value }))}
-                placeholder="123456"
-                maxLength={6}
-                required
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="areaname">Area Name *</Label>
-              <Input
-                id="areaname"
-                value={formData.areaname}
-                onChange={(e) => setFormData(prev => ({ ...prev, areaname: e.target.value }))}
-                placeholder="Area name"
-                required
-              />
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="cityname">City *</Label>
-              <Input
-                id="cityname"
-                value={formData.cityname}
-                onChange={(e) => setFormData(prev => ({ ...prev, cityname: e.target.value }))}
-                placeholder="City name"
-                required
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="distrcitname">District</Label>
-              <Input
-                id="distrcitname"
-                value={formData.distrcitname}
-                onChange={(e) => setFormData(prev => ({ ...prev, distrcitname: e.target.value }))}
-                placeholder="District name"
-              />
-            </div>
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="statename">State *</Label>
-            <Input
-              id="statename"
-              value={formData.statename}
-              onChange={(e) => setFormData(prev => ({ ...prev, statename: e.target.value }))}
-              placeholder="State name"
-              required
-            />
-          </div>
-
-          <div className="flex items-center space-x-2 pt-2">
-            <input
-              id="serviceable"
-              type="checkbox"
-              checked={!!formData.serviceable}
-              onChange={(e) => setFormData(prev => ({ ...prev, serviceable: e.target.checked }))}
-            />
-            <Label htmlFor="serviceable">Serviceable</Label>
-          </div>
-        </div>
-
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={onClose} disabled={isSaving}>
-            Cancel
-          </Button>
-          <Button onClick={() => handleSubmit(isEdit)} disabled={isSaving}>
-            {isSaving ? (
-              <>
-                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                {isEdit ? 'Updating...' : 'Adding...'}
-              </>
-            ) : (
-              <>
-                <Save className="mr-2 h-4 w-4" />
-                {isEdit ? 'Update' : 'Add'} Pincode
-              </>
-            )}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
 
   return (
     <div className="space-y-6">
@@ -647,25 +632,143 @@ const PincodeManagement = () => {
         </CardContent>
       </Card>
 
-      {/* Add Modal */}
-      <PincodeModal 
-        isOpen={isAddModalOpen} 
-        onClose={() => setIsAddModalOpen(false)} 
-        isEdit={false} 
-      />
-
-      {/* Edit Modal */}
-      <PincodeModal 
-        isOpen={isEditModalOpen} 
-        onClose={() => {
+      {/* Add/Edit Pincode Modal */}
+      <Dialog open={isAddModalOpen || isEditModalOpen} onOpenChange={(open) => {
+        if (!open) {
+          setIsAddModalOpen(false);
           setIsEditModalOpen(false);
           setSelectedPincode(null);
-        }} 
-        isEdit={true} 
-      />
+        }
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {isEditModalOpen ? 'Edit Pincode' : 'Add New Pincode'}
+            </DialogTitle>
+            <DialogDescription>
+              {isEditModalOpen ? 'Update pincode information' : 'Enter new pincode details'}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            handleSubmit(isEditModalOpen);
+          }}>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="pincode">Pincode</Label>
+                <Input
+                  id="pincode"
+                  type="text"
+                  value={formData.pincode}
+                  onChange={(e) => setFormData(prev => ({ ...prev, pincode: e.target.value }))}
+                  placeholder="Enter pincode"
+                  maxLength={6}
+                  required
+                  onKeyDown={(e) => {
+                    // Allow only numbers, backspace, delete, tab, escape, enter
+                    if (!/[0-9]/.test(e.key) && !['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                      e.preventDefault();
+                    }
+                  }}
+                />
+              </div>
+              <div>
+                <Label htmlFor="areaname">Area Name</Label>
+                <Input
+                  id="areaname"
+                  type="text"
+                  value={formData.areaname}
+                  onChange={(e) => setFormData(prev => ({ ...prev, areaname: e.target.value }))}
+                  placeholder="Enter area name"
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="cityname">City</Label>
+                <Input
+                  id="cityname"
+                  type="text"
+                  value={formData.cityname}
+                  onChange={(e) => setFormData(prev => ({ ...prev, cityname: e.target.value }))}
+                  placeholder="Enter city name"
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="distrcitname">District</Label>
+                <Input
+                  id="distrcitname"
+                  type="text"
+                  value={formData.distrcitname}
+                  onChange={(e) => setFormData(prev => ({ ...prev, distrcitname: e.target.value }))}
+                  placeholder="Enter district name"
+                />
+              </div>
+              <div>
+                <Label htmlFor="statename">State</Label>
+                <Input
+                  id="statename"
+                  type="text"
+                  value={formData.statename}
+                  onChange={(e) => setFormData(prev => ({ ...prev, statename: e.target.value }))}
+                  placeholder="Enter state name"
+                  required
+                />
+              </div>
+              
+              <div className="flex items-center space-x-2 pt-2">
+                <input
+                  id="serviceable"
+                  type="checkbox"
+                  checked={!!formData.serviceable}
+                  onChange={(e) => setFormData(prev => ({ ...prev, serviceable: e.target.checked }))}
+                />
+                <Label htmlFor="serviceable">Serviceable</Label>
+              </div>
+            </div>
+
+            <DialogFooter className="mt-6">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setIsAddModalOpen(false);
+                  setIsEditModalOpen(false);
+                  setSelectedPincode(null);
+                }}
+                disabled={isSaving}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={isSaving || !formData.pincode || !formData.areaname || !formData.cityname || !formData.statename}
+              >
+                {isSaving ? (
+                  <>
+                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                    {isEditModalOpen ? 'Updating...' : 'Adding...'}
+                  </>
+                ) : (
+                  <>
+                    <Save className="mr-2 h-4 w-4" />
+                    {isEditModalOpen ? 'Update' : 'Add'}
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => {
+        setIsDeleteDialogOpen(open);
+        if (!open) {
+          setPincodeToDelete(null);
+        }
+      }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Deletion</AlertDialogTitle>
